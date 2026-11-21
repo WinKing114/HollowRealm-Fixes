@@ -5,13 +5,19 @@
   "plugin": "hollowrealm.performance.HRFixesMixinPlugin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "KubeJsAttackCacheMixin"
+    "KubeJsAttackCacheMixin",
+    "GoetyFocusCooldownMixin",
+    "GoetySEHelperMixin",
+    "GoetyMiscCapHelperMixin",
+    "GoetyLichdomHelperMixin"
   ],
   "client": [
     "ApotheosisJeiMixin",
     "SocketingJeiLayoutMixin",
     "LodestoneTooltipMixin",
-    "ChatLineHeightGuardMixin"
+    "ChatLineHeightGuardMixin",
+    "FancyMenuGameRendererMixin",
+    "FancyMenuPoseStackMixin"
   ],
   "injectors": {
     "defaultRequire": 1

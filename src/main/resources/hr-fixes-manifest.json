@@ -3,7 +3,7 @@
   "modId": "hollowrealm_performance_compat",
   "displayName": "HollowRealm Fixes",
   "formerName": "HR Fixes",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "note": "Machine-readable fix ledger; each live patch is independently gated by HRFixesMixinPlugin.",
   "source": "compiled from src/main/java (Java 17)",
   "livePatches": [
@@ -14,6 +14,38 @@
       "side": "common",
       "gate": "L2HOSTILITY + L2DAMAGETRACKER + L2_KUBEJS_PLUGIN SHA-256 + L2_ATTACK_EVENT_HANDLER SHA-256 + bytecode shape",
       "fixes": "L2 Hostility KubeJS listener cache clear under the AttackEventHandler registration lock"
+    },
+    {
+      "id": "goety_focus_cooldown_guard",
+      "mixin": "GoetyFocusCooldownMixin",
+      "target": "com.Polarice3.Goety.common.capabilities.soulenergy.FocusCooldown",
+      "side": "common",
+      "gate": "GOETY 2.5.60.5 + FocusCooldown.class SHA-256 + field/method descriptor check",
+      "fixes": "short-circuit empty FocusCooldown maps and empty stacks before FocusCooldown.keyOf(ItemStack) serializes NBT to String"
+    },
+    {
+      "id": "goety_se_helper_lazy_cap",
+      "mixin": "GoetySEHelperMixin",
+      "target": "com.Polarice3.Goety.utils.SEHelper",
+      "side": "common",
+      "gate": "GOETY 2.5.60.5 + SEHelper.class SHA-256 + capability/cooldown descriptor check",
+      "fixes": "replace eager new SEImp() allocation in SEHelper.getCapability with lazy orElseGet(SEImp::new) and collapse duplicate cooldown lookups"
+    },
+    {
+      "id": "goety_misc_helper_lazy_cap",
+      "mixin": "GoetyMiscCapHelperMixin",
+      "target": "com.Polarice3.Goety.utils.MiscCapHelper",
+      "side": "common",
+      "gate": "GOETY 2.5.60.5 + MiscCapHelper.class SHA-256 + getCapability descriptor check",
+      "fixes": "ensure MiscCapHelper.getCapability resolves capability with null-safe lazy MiscImp::new fallback"
+    },
+    {
+      "id": "goety_lichdom_helper_lazy_cap",
+      "mixin": "GoetyLichdomHelperMixin",
+      "target": "com.Polarice3.Goety.utils.LichdomHelper",
+      "side": "common",
+      "gate": "GOETY 2.5.60.5 + LichdomHelper.class SHA-256 + getCapability descriptor check",
+      "fixes": "replace eager new LichImp() allocation in LichdomHelper.getCapability with lazy orElseGet(LichImp::new)"
     },
     {
       "id": "apotheosis_socketing_jei",
@@ -46,6 +78,22 @@
       "side": "client",
       "gate": "vanilla ChatComponent render and line-height bytecode shape",
       "fixes": "guard chat line-height divide-by-zero for non-finite values and line spacing where (int)(9 * (spacing + 1)) < 1"
+    },
+    {
+      "id": "fancymenu_render_level_scope",
+      "mixin": "FancyMenuGameRendererMixin",
+      "target": "net.minecraft.client.renderer.GameRenderer",
+      "side": "client",
+      "gate": "FANCYMENU 3.9.14 + MixinPoseStack.class SHA-256 + GameRenderer render/renderLevel SRG signatures",
+      "fixes": "track GameRenderer.renderLevel entry/exit depth and frame boundaries on the client render thread"
+    },
+    {
+      "id": "fancymenu_pose_stack_guard",
+      "mixin": "FancyMenuPoseStackMixin",
+      "target": "com.mojang.blaze3d.vertex.PoseStack",
+      "side": "client",
+      "gate": "FANCYMENU 3.9.14 + MixinPoseStack.class SHA-256 + PoseStack SRG signatures",
+      "fixes": "skip FancyMenu PoseStack UI matrix stack allocations and ThreadLocal updates during 3D GameRenderer.renderLevel"
     }
   ],
   "systemPatches": [
@@ -60,5 +108,5 @@
       "fixes": "disable CoO 5.5 Structurify overlap mixin for Structurify 2.0.42/2.0.43"
     }
   ],
-  "scope": "code-level compatibility and crash fixes; data-layer compatibility lives in HollowRealm Tweaks"
+  "scope": "code-level compatibility, crash, and hot-path allocation fixes; data-layer compatibility lives in HollowRealm Tweaks"
 }

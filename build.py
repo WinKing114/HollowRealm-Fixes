@@ -1,4 +1,4 @@
-"""Reproducible Java 17 build, JUnit 5 verification, and packaging for HollowRealm Fixes 2.0.1."""
+"""Reproducible Java 17 build, JUnit 5 verification, and packaging for HollowRealm Fixes 2.1.0."""
 from __future__ import annotations
 
 import hashlib
@@ -11,12 +11,14 @@ import sys
 import zipfile
 from pathlib import Path
 
-VERSION = "2.0.1"
+VERSION = "2.1.0"
 ARTIFACT_NAME = f"HollowRealm-Fixes-{VERSION}.jar"
-FIXED_ZIP_TIME = (2026, 11, 19, 12, 0, 0)
+FIXED_ZIP_TIME = (2026, 11, 21, 12, 0, 0)
 
 REPO_ROOT = Path(__file__).resolve().parent
 MODPACK_CODE_DIR = REPO_ROOT.parent
+MODPACK_ROOT = MODPACK_CODE_DIR.parent.parent
+MODPACK_BUILD_DIR = MODPACK_ROOT / "build"
 DIST_DIR = MODPACK_CODE_DIR / "dist"
 BUILD_DIR = REPO_ROOT / "build"
 MAIN_CLASSES = BUILD_DIR / "classes" / "main"
@@ -80,6 +82,8 @@ def resolve_compile_classpath() -> tuple[list[Path], Path]:
         INSTANCE_MODS / "[神化] Apotheosis-1.20.1-7.4.8.jar",
         INSTANCE_MODS / "Placebo-1.20.1-8.6.3.jar",
         INSTANCE_MODS / "[JEI物品管理器] jei-1.20.1-forge-15.56.0.205.jar",
+        INSTANCE_MODS / "[诡厄巫法] goety-2.5.60.5.jar",
+        INSTANCE_MODS / "fancymenu_forge_3.9.14_MC_1.20.1.jar",
     ]
     missing = [str(p) for p in relative_libs if not p.is_file()]
     if missing:
@@ -257,6 +261,9 @@ def package_and_verify() -> tuple[Path, dict]:
     dist_jar = DIST_DIR / ARTIFACT_NAME
     shutil.copy2(jar_path, dist_jar)
     (DIST_DIR / f"SHA256SUMS-{VERSION}.txt").write_text(f"{jar_sha} *{ARTIFACT_NAME}\n", encoding="utf-8")
+
+    MODPACK_BUILD_DIR.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(jar_path, MODPACK_BUILD_DIR / f"hollowrealm_fixes-{VERSION}.jar")
 
     build_manifest = {
         "version": VERSION,

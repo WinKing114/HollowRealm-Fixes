@@ -1,0 +1,25 @@
+# 2.1.0 Verification & Artifact Identity
+
+Verification log for **HollowRealm Fixes `2.1.0`** (`HollowRealm-Fixes-2.1.0.jar`).
+
+- **Artifact**: `HollowRealm-Fixes-2.1.0.jar` (also copied to `build/hollowrealm_fixes-2.1.0.jar`)
+- **Size**: `45,161` bytes (`33` archive entries, `25` classes)
+- **SHA-256**: `9fd8b98e62e00032caeba3c2bce0cd96578238ecaf0992bba8acd7168a76c00e`
+
+## Audited Target Bytecode (`javap -c -p -s`)
+
+| Target Mod / JAR | Class | SHA-256 | Verified Findings & Patch Mechanism |
+| :--- | :--- | :--- | :--- |
+| `[诡厄巫法] goety-2.5.60.5.jar` | `com.Polarice3.Goety.common.capabilities.soulenergy.FocusCooldown` | `586c48cedf265e652db8bed56cc27a2e7a7f61dcf3266985bdc76be19e107aaf` | `getSpecificCooldownPercent(ItemStack)`, `isOnSpecificCooldown(ItemStack)`, and `removeSpecificCooldown(Player, Level, ItemStack)` call `FocusCooldown.keyOf(stack)` before checking if `this.cooldownsSpecific` is empty, serializing the entire `CompoundTag` to a `String` every frame for every rendered hotbar/GUI item (`GuiGraphicsMixin.renderFocusCooldown`). `GoetyFocusCooldownMixin` injects at `@At("HEAD")` (cancellable) to return `0.0F` / `false` / cancel immediately when `cooldownsSpecific.isEmpty()` (or `stack == null \|\| stack.m_41619_()`), and similarly short-circuits `getCooldownPercent(Item)` / `isOnCooldown(Item)` when `cooldowns.isEmpty()`. |
+| `[诡厄巫法] goety-2.5.60.5.jar` | `com.Polarice3.Goety.utils.SEHelper` | `c575d7a0d43c97f985571b8af067108748a2f1062b040340954a5543ef1ef3b1` | `getCapability(Player)` calls `player.getCapability(SEProvider.CAPABILITY).orElse(new SEImp())`, eagerly allocating a throwaway `SEImp` (plus `FocusCooldown`, 2 `HashMap`s, and 9 `ArrayList`s) on every call; `isOnCooldown(Player, ItemStack)` and `getCooldownPercent(Player, ItemStack)` perform 2–4 redundant `getFocusCoolDown(player)` lookups per call. `GoetySEHelperMixin` intercepts `getCapability` at `@At("HEAD")` via lazy `orElseGet(SEImp::new)` and collapses `isOnCooldown` / `getCooldownPercent` to a single `getFocusCoolDown(player)` lookup with an empty-map short-circuit. |
+| `[诡厄巫法] goety-2.5.60.5.jar` | `com.Polarice3.Goety.utils.MiscCapHelper` | `593b43afb9d4bdd95bdeb3aed1878b6127596a1adaf7275952e872c621f5d3b0` | `GoetyMiscCapHelperMixin` intercepts `getCapability(LivingEntity)` at `@At("HEAD")` with a null-safe lazy `orElseGet(MiscImp::new)` fallback. |
+| `[诡厄巫法] goety-2.5.60.5.jar` | `com.Polarice3.Goety.utils.LichdomHelper` | `9d0da14362a49b0ff270e231796442e018f82ceb21cb75a6cf6b2d25f3020d45` | `getCapability(Player)` calls `player.getCapability(LichProvider.CAPABILITY).orElse(new LichImp())`, eagerly allocating a throwaway `LichImp` on every tick/render call. `GoetyLichdomHelperMixin` intercepts at `@At("HEAD")` via lazy `orElseGet(LichImp::new)`. |
+| `fancymenu_forge_3.9.14_MC_1.20.1.jar` | `de.keksuccino.fancymenu.mixin.mixins.common.client.MixinPoseStack` | `d37c2213a9a87d48217fbb4e420659e289bc7820fe1de015b033ad6b2aa03f78` | Hooks `pushPose` (`m_85836_`), `popPose` (`m_85849_`), `scale` (`m_85841_`), `mulPose` (`m_252781_`), and `translate` (`m_252880_`) on every `PoseStack` in the game, allocating `TranslationState`, `RotationState`, boxed `Float`, and mutating 3 `ThreadLocal`s during 3D world rendering. All 5 hooks begin with `if (this.isRenderSystemModelViewStack_FancyMenu()) return;`. `FancyMenuGameRendererMixin` tracks `GameRenderer.m_109089_` (`renderLevel`) entry/exit depth and `GameRenderer.m_109093_` (`render`) frame boundaries on the render thread, while `FancyMenuPoseStackMixin` (`priority = 1500`, `HRFixesMixinPlugin.postApply`) prepends `if (FancyMenuPoseStackGuard.shouldSkipPoseStackTracking()) return true;` to `isRenderSystemModelViewStack_FancyMenu()`. |
+
+## Build & Verification Layers
+
+| Layer | Status | Scope & Notes |
+| :--- | :--- | :--- |
+| **Java 17 Compilation & Bytecode (`./gradlew test build` & `build.py`)** | **PASS** | Compiled 18 main Java sources with Zulu JDK 17 (`--release 17`, major version 61), zero warnings, zero dead 1.x mod references in `HRFixesMixinPlugin.class`, and `mixins.json` ↔ `hr-fixes-manifest.json` ↔ `.class` verified 1:1 across all 11 live Mixins. |
+| **JUnit 5 Unit & Real-Bytecode Suite** | **PASS (14/14)** | `ChatLineHeightGuardTest` (2), `GoetyFocusCooldownPatchTest` (3), `FancyMenuPoseStackGuardTest` (3, including in-JVM bytecode execution of ASM-transformed `isRenderSystemModelViewStack_FancyMenu`), `HRFixesMixinPluginTest` (3, verifying all 11 live Mixins against real installed bytecode for `Goety 2.5.60.5`, `FancyMenu 3.9.14`, `ApothicAttributes 1.3.7`, `Lodestone 1.6.4.1`, `Apotheosis 7.4.8`, `JEI 15.56.0.205`, `L2Hostility 2.5.19`, `L2DamageTracker 0.4.4`, and `Minecraft 1.20.1` SRG `ChatComponent`/`GameRenderer`/`PoseStack`), and `SocketingJeiCacheBenchmarkTest` (3). |
+| **Micro-Benchmarks** | **PASS** | `GoetyFocusCooldownPatchTest`: **4.27x–4.44x** speedup with zero throwaway fallback allocations; `SocketingJeiCacheBenchmarkTest`: **33.81x–51.37x** cache-hit speedup. |

@@ -1,0 +1,93 @@
+plugins {
+    id 'java'
+}
+
+version = findProperty('mod_version') ?: '2.1.0'
+group = 'hollowrealm.performance'
+base.archivesName = 'HollowRealm-Fixes'
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+def mcLibs = file('C:/Users/WinKing/Documents/.minecraft/libraries')
+def instanceMods = file('C:/Users/WinKing/Documents/.minecraft/versions/HollowRealm/mods')
+def gradleCache = file('C:/Users/WinKing/.gradle/caches/modules-2/files-2.1')
+def clientSrg = new File(mcLibs, 'net/minecraft/client/1.20.1-20230612.114412/client-1.20.1-20230612.114412-srg.jar')
+
+def compileJars = [
+    clientSrg,
+    new File(mcLibs, 'net/minecraftforge/forge/1.20.1-47.4.29/forge-1.20.1-47.4.29-client.jar'),
+    new File(mcLibs, 'net/minecraftforge/forge/1.20.1-47.4.29/forge-1.20.1-47.4.29-universal.jar'),
+    new File(mcLibs, 'net/minecraftforge/javafmllanguage/1.20.1-47.4.29/javafmllanguage-1.20.1-47.4.29.jar'),
+    new File(mcLibs, 'net/minecraftforge/fmlloader/1.20.1-47.4.29/fmlloader-1.20.1-47.4.29.jar'),
+    new File(mcLibs, 'net/minecraftforge/fmlcore/1.20.1-47.4.29/fmlcore-1.20.1-47.4.29.jar'),
+    new File(mcLibs, 'net/minecraftforge/forgespi/7.0.1/forgespi-7.0.1.jar'),
+    new File(mcLibs, 'net/minecraftforge/eventbus/6.2.33/eventbus-6.2.33.jar'),
+    new File(mcLibs, 'org/spongepowered/mixin/0.8.5/mixin-0.8.5.jar'),
+    new File(mcLibs, 'org/ow2/asm/asm/9.9.1/asm-9.9.1.jar'),
+    new File(mcLibs, 'org/ow2/asm/asm-commons/9.9.1/asm-commons-9.9.1.jar'),
+    new File(mcLibs, 'org/ow2/asm/asm-tree/9.9.1/asm-tree-9.9.1.jar'),
+    new File(mcLibs, 'org/apache/logging/log4j/log4j-api/2.19.0/log4j-api-2.19.0.jar'),
+    new File(mcLibs, 'org/apache/logging/log4j/log4j-core/2.19.0/log4j-core-2.19.0.jar'),
+    new File(mcLibs, 'org/apache/logging/log4j/log4j-slf4j2-impl/2.19.0/log4j-slf4j2-impl-2.19.0.jar'),
+    new File(mcLibs, 'org/slf4j/slf4j-api/2.0.1/slf4j-api-2.0.1.jar'),
+    new File(mcLibs, 'org/apache/maven/maven-artifact/3.8.5/maven-artifact-3.8.5.jar'),
+    new File(mcLibs, 'com/mojang/datafixerupper/6.0.8/datafixerupper-6.0.8.jar'),
+    new File(mcLibs, 'com/google/code/gson/gson/2.10/gson-2.10.jar'),
+    new File(mcLibs, 'com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1.jar'),
+    new File(mcLibs, 'com/google/guava/guava/31.1-jre/guava-31.1-jre.jar'),
+    new File(mcLibs, 'it/unimi/dsi/fastutil/8.5.9/fastutil-8.5.9.jar'),
+    new File(mcLibs, 'org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar'),
+    new File(mcLibs, 'net/minecraftforge/mergetool/1.1.5/mergetool-1.1.5-api.jar'),
+    new File(instanceMods, '[神化] Apotheosis-1.20.1-7.4.8.jar'),
+    new File(instanceMods, 'Placebo-1.20.1-8.6.3.jar'),
+    new File(instanceMods, '[JEI物品管理器] jei-1.20.1-forge-15.56.0.205.jar'),
+    new File(instanceMods, '[诡厄巫法] goety-2.5.60.5.jar'),
+    new File(instanceMods, 'fancymenu_forge_3.9.14_MC_1.20.1.jar'),
+]
+
+def junitSpecs = [
+    ['org.apiguardian', 'apiguardian-api-1.1.2.jar'],
+    ['org.opentest4j', 'opentest4j-1.3.0.jar'],
+    ['org.junit.jupiter', 'junit-jupiter-api-5.10.3.jar'],
+    ['org.junit.jupiter', 'junit-jupiter-engine-5.10.3.jar'],
+    ['org.junit.jupiter', 'junit-jupiter-params-5.10.3.jar'],
+    ['org.junit.platform', 'junit-platform-commons-1.10.3.jar'],
+    ['org.junit.platform', 'junit-platform-engine-1.10.3.jar'],
+    ['org.junit.platform', 'junit-platform-launcher-1.10.3.jar'],
+]
+def junitJars = junitSpecs.collect { spec ->
+    fileTree(new File(gradleCache, spec[0])).matching { include "**/${spec[1]}" }.SingleFile
+}
+
+dependencies {
+    compileOnly files(compileJars)
+    testImplementation files(compileJars)
+    testImplementation files(junitJars)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+    options.compilerArgs += ['-proc:none', '-Xlint:unchecked']
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    maxParallelForks = 1
+    systemProperty 'hrfixes.mods', instanceMods.absolutePath.replace('\\', '/')
+    systemProperty 'hrfixes.srg', clientSrg.absolutePath.replace('\\', '/')
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+    }
+}
+
+tasks.register('reproduciblePackage', Exec) {
+    dependsOn tasks.named('test')
+    workingDir projectDir
+    environment 'JAVA_HOME', 'C:/Program Files/Zulu/zulu-17'
+    commandLine 'python', '-X', 'utf8', 'build.py'
+}
+
+tasks.named('build') {
+    finalizedBy tasks.named('reproduciblePackage')
+}

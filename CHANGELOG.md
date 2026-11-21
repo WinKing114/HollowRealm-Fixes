@@ -4,6 +4,19 @@ All notable changes to **HollowRealm Fixes** (formerly **HR Fixes**, mod ID `hol
 
 ---
 
+## [2.1.0] — 2026-11-21
+
+### Added
+- **Goety Focus Cooldown & Capability Allocation Patch (`GoetyFocusCooldownPatch`, `GoetyFocusCooldownMixin`, `GoetySEHelperMixin`, `GoetyMiscCapHelperMixin`, `GoetyLichdomHelperMixin`)**:
+  - Short-circuits `FocusCooldown.getSpecificCooldownPercent(ItemStack)`, `FocusCooldown.isOnSpecificCooldown(ItemStack)`, and `FocusCooldown.removeSpecificCooldown(Player, Level, ItemStack)` at `@At("HEAD")` when `cooldownsSpecific.isEmpty()` (or `stack == null || stack.isEmpty()`), avoiding per-frame `FocusCooldown.keyOf(stack)` `CompoundTag` string serialization across hotbar and GUI slots (~51 MB/s GC allocation + 3.6% Render Thread CPU savings).
+  - Short-circuits `FocusCooldown.getCooldownPercent(Item)` and `FocusCooldown.isOnCooldown(Item)` when `cooldowns.isEmpty()` or `item == null`.
+  - Replaces eager `.getCapability(CAP).orElse(new SEImp())` / `.orElse(new LichImp())` allocations in `SEHelper.getCapability(Player)`, `MiscCapHelper.getCapability(LivingEntity)`, and `LichdomHelper.getCapability(Player)` with lazy `.orElseGet(...)` fallback, and collapses duplicate `getFocusCoolDown(player)` lookups in `SEHelper.isOnCooldown(Player, ItemStack)` and `SEHelper.getCooldownPercent(Player, ItemStack)`.
+- **FancyMenu 3D World-Rendering PoseStack Guard (`FancyMenuPoseStackGuard`, `FancyMenuGameRendererMixin`, `FancyMenuPoseStackMixin`)**:
+  - Tracks `GameRenderer.renderLevel` (`m_109089_`) entry/exit depth and `GameRenderer.render` (`m_109093_`) frame boundaries on the client render thread and patches `MixinPoseStack.isRenderSystemModelViewStack_FancyMenu()` via `HRFixesMixinPlugin.postApply` (`priority = 1500`) so FancyMenu's UI matrix stack tracking (`TranslationState`, `RotationState`, boxed `Float`, and 3 `ThreadLocal` lookups) is skipped during 3D world rendering while working normally during all 2D Screen/GUI/HUD rendering (~20 MB/s allocation + 3.0% Render Thread CPU savings).
+- Added `GoetyFocusCooldownPatchTest`, `FancyMenuPoseStackGuardTest`, expanded `HRFixesMixinPluginTest` to verify all 11 live Mixins against real installed mod bytecode, and added Gradle (`./gradlew test build`) wrapper integration alongside `build.py`.
+
+---
+
 ## [2.0.1] — 2026-11-19
 
 ### Added

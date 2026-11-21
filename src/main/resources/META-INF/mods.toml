@@ -3,11 +3,11 @@ loaderVersion="[47,48)"
 license="MIT"
 [[mods]]
 modId="hollowrealm_performance_compat"
-version="2.0.1"
+version="2.1.0"
 displayName="HollowRealm Fixes"
 authors="WinKing, Hollow Realm contributors"
 displayTest="IGNORE_SERVER_VERSION"
-description="Targeted Java and Mixin compatibility fixes for HollowRealm on Minecraft 1.20.1 / Forge 47.4.x: L2 Hostility KubeJS listener cache race, Apotheosis socketing JEI display, Lodestone/AttributesLib tooltip callback race, vanilla chat line-height divide-by-zero crash, and the optional CoO/Structurify structure-overlap gate. Each patch is version/fingerprint-gated and fails closed. Formerly published as HR Fixes."
+description="Targeted Java and Mixin compatibility and allocation fixes for HollowRealm on Minecraft 1.20.1 / Forge 47.4.x: Goety FocusCooldown NBT key serialization & capability allocation guards, FancyMenu PoseStack 3D world-rendering skip guard, L2 Hostility KubeJS listener cache race, Apotheosis socketing JEI display, Lodestone/AttributesLib tooltip callback race, vanilla chat line-height divide-by-zero crash, and the optional CoO/Structurify structure-overlap gate. Each patch is version/fingerprint-gated and fails closed. Formerly published as HR Fixes."
 [[dependencies.hollowrealm_performance_compat]]
 modId="forge"
 mandatory=true

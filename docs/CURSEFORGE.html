@@ -6,14 +6,16 @@
   <img src="https://img.shields.io/badge/License-MIT-5b9c51?style=flat" alt="MIT License" />
 </p>
 
-<p><strong>HollowRealm Fixes</strong> (formerly <strong>HR Fixes</strong>) is a lightweight code-level compatibility and bug-fix mod built for the <strong>HollowRealm</strong> modpack on <strong>Minecraft 1.20.1 (Forge)</strong>. It resolves confirmed crashes, concurrency races, and broken UI/JEI integrations using version- and bytecode-gated Java/Mixin patches without altering gameplay balance, recipes, quests, or progression.</p>
+<p><strong>HollowRealm Fixes</strong> (formerly <strong>HR Fixes</strong>) is a lightweight code-level compatibility, bug-fix, and hot-path allocation fix mod built for the <strong>HollowRealm</strong> modpack on <strong>Minecraft 1.20.1 (Forge)</strong>. It resolves confirmed crashes, concurrency races, broken UI/JEI integrations, and per-frame memory allocation spikes using version- and bytecode-gated Java/Mixin patches without altering gameplay balance, recipes, quests, or progression.</p>
 
-<p>Install this mod if you play HollowRealm (or run the same audited mod versions) and want silent, fail-closed fixes for vanilla and cross-mod issues. Data-pack and recipe/loot condition fixes live separately in <a href="https://www.curseforge.com/minecraft/mc-mods/hollowrealm-tweaks" rel="nofollow">HollowRealm Tweaks</a>.</p>
+<p>Install this mod if you play HollowRealm (or run the same audited mod versions) and want silent, fail-closed fixes for vanilla and cross-mod issues. Data-pack and recipe/loot/gem condition fixes live separately in <a href="https://www.curseforge.com/minecraft/mc-mods/hollowrealm-tweaks" rel="nofollow">HollowRealm Tweaks</a>.</p>
 
 <h2>What's Included</h2>
 <hr />
 <p>Every patch runs through <code>HRFixesMixinPlugin</code> (or a guarded Forge CoreMod) and <strong>fails closed</strong>: if a target mod is absent, updated to an unaudited version, or has unexpected bytecode, that patch skips cleanly without crashing startup.</p>
 <ul>
+  <li><strong>Goety Focus Cooldown &amp; Capability Allocation Guard:</strong> Short-circuits <code>FocusCooldown.getSpecificCooldownPercent</code>, <code>isOnSpecificCooldown</code>, and <code>removeSpecificCooldown</code> when <code>cooldownsSpecific</code> is empty before <code>FocusCooldown.keyOf(ItemStack)</code> serializes the full item <code>CompoundTag</code> every frame across hotbar/GUI slots; short-circuits empty <code>cooldowns</code> queries; collapses duplicate <code>getFocusCoolDown(player)</code> lookups; and replaces eager <code>.orElse(new SEImp())</code> / <code>.orElse(new LichImp())</code> throwaway allocations in <code>SEHelper</code>, <code>MiscCapHelper</code>, and <code>LichdomHelper</code> with lazy <code>.orElseGet(...)</code> fallback (~51 MB/s GC allocation + 3.6% Render Thread CPU savings).</li>
+  <li><strong>FancyMenu 3D World-Rendering PoseStack Guard:</strong> Tracks <code>GameRenderer.renderLevel</code> entry/exit depth and frame boundaries on the client render thread so FancyMenu's <code>MixinPoseStack</code> skips UI matrix stack tracking (<code>TranslationState</code>, <code>RotationState</code>, boxed <code>Float</code>, and 3 <code>ThreadLocal</code> stacks) during 3D world rendering while operating normally during all 2D Screen/GUI/HUD rendering (~20 MB/s GC allocation + 3.0% Render Thread CPU savings).</li>
   <li><strong>Vanilla Chat Line-Height Crash Guard:</strong> Prevents divide-by-zero crashes in <code>ChatComponent</code> when chat line spacing produces an integer line height below <code>1</code> or non-finite values (<code>NaN</code> / <code>&plusmn;Infinity</code>), falling back safely to <code>0.0</code> while keeping all valid spacing values intact.</li>
   <li><strong>L2 Hostility &times; KubeJS Cache Race Fix:</strong> Synchronizes <code>LHKJSPlugin.clearCaches()</code> under <code>AttackEventHandler</code>'s registration lock to eliminate concurrent modification risks during reloads and combat listener setup.</li>
   <li><strong>Lodestone &times; AttributesLib Tooltip Race Fix:</strong> Marks the audited <code>AttributesLibClient</code> base-modifier callback <code>synchronized</code>, preventing tooltip race conditions when background threads (such as FastJEI workers) build tooltips concurrently.</li>
@@ -25,8 +27,8 @@
 <hr />
 <p>HollowRealm's custom maintenance is split cleanly into two complementary mods with zero overlapping targets:</p>
 <ul>
-  <li><strong>HollowRealm Fixes</strong> (<code>hollowrealm_performance_compat</code>) &mdash; <strong>Code &amp; Mixin layer</strong>: fixes crashes, thread-safety races, JEI socketing display, and the optional CoO/Structurify coremod conflict.</li>
-  <li><strong><a href="https://www.curseforge.com/minecraft/mc-mods/hollowrealm-tweaks" rel="nofollow">HollowRealm Tweaks</a></strong> (<code>hollowrealm_tweaks</code>) &mdash; <strong>In-memory Server Data layer</strong>: repairs clam loot condition IDs, restores the shadowed annihilation bottle recipe, and gates optional Scguns affixes when Scguns is absent.</li>
+  <li><strong>HollowRealm Fixes</strong> (<code>hollowrealm_performance_compat</code>) &mdash; <strong>Code &amp; Mixin layer</strong>: fixes crashes, thread-safety races, Goety &amp; FancyMenu frame allocation spikes, JEI socketing display, and the optional CoO/Structurify coremod conflict.</li>
+  <li><strong><a href="https://www.curseforge.com/minecraft/mc-mods/hollowrealm-tweaks" rel="nofollow">HollowRealm Tweaks</a></strong> (<code>hollowrealm_tweaks</code>) &mdash; <strong>In-memory Server Data layer</strong>: repairs clam loot condition IDs, restores the shadowed annihilation bottle recipe, gates optional Scguns affixes when Scguns is absent, and repairs three Fallen Gems &amp; Affixes compat gem/extra-gem-bonus files.</li>
 </ul>
 <p>Both mods are designed and verified to run together safely.</p>
 
@@ -35,14 +37,14 @@
 <ul>
   <li><strong>Environment:</strong> Minecraft <strong>1.20.1</strong> &middot; Forge <code>[47.4.16, 48)</code> (verified on Forge <strong>47.4.29</strong>) &middot; <strong>Java 17</strong>.</li>
   <li><strong>Multiplayer / Side:</strong> Uses <code>IGNORE_SERVER_VERSION</code>; safe for client or server installations matching your pack setup.</li>
-  <li><strong>Optional Target Mods:</strong> All patched mods (Apotheosis <code>7.4.8</code>, JEI <code>15.56.0.205</code>, Lodestone <code>1.20.1-1.6.4.1</code>, ApothicAttributes <code>1.3.7</code>, L2 Hostility <code>2.5.19</code>, L2 DamageTracker <code>0.4.4</code>, CoO <code>4.6/5.5/6.5</code>, Structurify <code>2.0.42/2.0.43</code>) are optional and independently gated.</li>
-  <li><strong>Single-JAR Rule:</strong> Keep only <strong>one</strong> JAR with mod ID <code>hollowrealm_performance_compat</code> installed. Remove legacy <code>hr-fixes-*.jar</code> files when upgrading.</li>
+  <li><strong>Optional Target Mods:</strong> All patched mods (Goety <code>2.5.60.5</code>, FancyMenu <code>3.9.14</code>, Apotheosis <code>7.4.8</code>, JEI <code>15.56.0.205</code>, Lodestone <code>1.20.1-1.6.4.1</code>, ApothicAttributes <code>1.3.7</code>, L2 Hostility <code>2.5.19</code>, L2 DamageTracker <code>0.4.4</code>, CoO <code>4.6/5.5/6.5</code>, Structurify <code>2.0.42/2.0.43</code>) are optional and independently gated.</li>
+  <li><strong>Single-JAR Rule:</strong> Keep only <strong>one</strong> JAR with mod ID <code>hollowrealm_performance_compat</code> installed. Remove legacy <code>hr-fixes-*.jar</code> or older <code>HollowRealm-Fixes-*.jar</code> files when upgrading.</li>
 </ul>
 
 <h2>Related Projects</h2>
 <hr />
 <ul>
-  <li><a href="https://www.curseforge.com/minecraft/mc-mods/hollowrealm-tweaks" rel="nofollow"><strong>HollowRealm Tweaks</strong></a> (<a href="https://github.com/WinKing114/HollowRealm-Tweaks" rel="nofollow">GitHub</a>) &mdash; Companion high-priority <code>SERVER_DATA</code> compatibility mod for HollowRealm (<code>0.2.1</code>).</li>
+  <li><a href="https://www.curseforge.com/minecraft/mc-mods/hollowrealm-tweaks" rel="nofollow"><strong>HollowRealm Tweaks</strong></a> (<a href="https://github.com/WinKing114/HollowRealm-Tweaks" rel="nofollow">GitHub</a>) &mdash; Companion high-priority <code>SERVER_DATA</code> compatibility mod for HollowRealm (<code>0.3.0</code>).</li>
   <li><a href="https://www.curseforge.com/minecraft/mc-mods/crosshairbobbing-fixed" rel="nofollow"><strong>CrosshairBobbing Fixed</strong></a> (<a href="https://github.com/WinKing114/CrosshairBobbing-Fixed" rel="nofollow">GitHub</a>) &mdash; Keeps crosshair view bobbing and action animations (walking, attacking, breaking blocks, charging, eating, and drinking) while fixing Quilt/loader startup crashes and Forge 1.20.x HUD transform glitches.<br /><em>Original mod attribution: Unofficial bug-fix fork of <strong>Crosshair Bobbing</strong> by <strong>Krash220</strong> (<a href="https://www.curseforge.com/minecraft/mc-mods/xbob" rel="nofollow">CurseForge</a> &middot; <a href="https://modrinth.com/mod/xbob" rel="nofollow">Modrinth</a> &middot; <a href="https://github.com/Krash220/CrosshairBobbingMod" rel="nofollow">GitHub</a>).</em></li>
 </ul>
 

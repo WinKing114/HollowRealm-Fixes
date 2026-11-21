@@ -18,6 +18,11 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FrameNode;
+import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.JumpInsnNode;
+import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -36,6 +41,8 @@ public final class HRFixesMixinPlugin implements IMixinConfigPlugin {
     private static final List<String> STRUCTURIFY = List.of("2.0.42", "2.0.43");
     private static final List<String> L2HOSTILITY = List.of("2.5.19");
     private static final List<String> L2DAMAGETRACKER = List.of("0.4.4");
+    private static final List<String> GOETY = List.of("2.5.60.5");
+    private static final List<String> FANCYMENU = List.of("3.9.14");
 
     private static final String L2_KUBEJS_PLUGIN = "dev.xkmc.l2hostility.compat.kubejs.LHKJSPlugin";
     private static final String L2_KUBEJS_PLUGIN_PATH = "dev/xkmc/l2hostility/compat/kubejs/LHKJSPlugin.class";
@@ -61,6 +68,30 @@ public final class HRFixesMixinPlugin implements IMixinConfigPlugin {
     private static final String SLOT_BUILDER = "Lmezz/jei/api/gui/builder/IRecipeSlotBuilder;";
     private static final String ADVENTURE_JEI_PLUGIN = "dev.shadowsoffire.apotheosis.adventure.compat.AdventureJEIPlugin";
     private static final String REGISTER_VANILLA_EXTENSIONS = "(Lmezz/jei/api/registration/IVanillaCategoryExtensionRegistration;)V";
+
+    private static final String GOETY_FOCUS_COOLDOWN = "com.Polarice3.Goety.common.capabilities.soulenergy.FocusCooldown";
+    private static final String GOETY_FOCUS_COOLDOWN_PATH = "com/Polarice3/Goety/common/capabilities/soulenergy/FocusCooldown.class";
+    private static final String GOETY_FOCUS_COOLDOWN_SHA256 = "586c48cedf265e652db8bed56cc27a2e7a7f61dcf3266985bdc76be19e107aaf";
+
+    private static final String GOETY_SE_HELPER = "com.Polarice3.Goety.utils.SEHelper";
+    private static final String GOETY_SE_HELPER_PATH = "com/Polarice3/Goety/utils/SEHelper.class";
+    private static final String GOETY_SE_HELPER_SHA256 = "c575d7a0d43c97f985571b8af067108748a2f1062b040340954a5543ef1ef3b1";
+
+    private static final String GOETY_MISC_HELPER = "com.Polarice3.Goety.utils.MiscCapHelper";
+    private static final String GOETY_MISC_HELPER_PATH = "com/Polarice3/Goety/utils/MiscCapHelper.class";
+    private static final String GOETY_MISC_HELPER_SHA256 = "593b43afb9d4bdd95bdeb3aed1878b6127596a1adaf7275952e872c621f5d3b0";
+
+    private static final String GOETY_LICHDOM_HELPER = "com.Polarice3.Goety.utils.LichdomHelper";
+    private static final String GOETY_LICHDOM_HELPER_PATH = "com/Polarice3/Goety/utils/LichdomHelper.class";
+    private static final String GOETY_LICHDOM_HELPER_SHA256 = "9d0da14362a49b0ff270e231796442e018f82ceb21cb75a6cf6b2d25f3020d45";
+
+    private static final String GAME_RENDERER = "net.minecraft.client.renderer.GameRenderer";
+    private static final String POSE_STACK = "com.mojang.blaze3d.vertex.PoseStack";
+    private static final String FANCYMENU_POSE_STACK_MIXIN_PATH = "de/keksuccino/fancymenu/mixin/mixins/common/client/MixinPoseStack.class";
+    private static final String FANCYMENU_POSE_STACK_MIXIN_SHA256 = "d37c2213a9a87d48217fbb4e420659e289bc7820fe1de015b033ad6b2aa03f78";
+    private static final String FANCYMENU_MODEL_VIEW_CHECK = "isRenderSystemModelViewStack_FancyMenu";
+    private static final String FANCYMENU_GUARD_OWNER = "hollowrealm/performance/FancyMenuPoseStackGuard";
+    private static final String FANCYMENU_GUARD_METHOD = "shouldSkipPoseStackTracking";
 
     private static final ResourceLookup DEFAULT_LOOKUP = path -> {
         try (InputStream stream = MixinService.getService().getResourceAsStream(path)) {
@@ -200,6 +231,12 @@ public final class HRFixesMixinPlugin implements IMixinConfigPlugin {
             case "SocketingJeiLayoutMixin" -> socketingLayout(targetClassName);
             case "KubeJsAttackCacheMixin" -> l2KubeJsCache(targetClassName);
             case "ChatLineHeightGuardMixin" -> chatLineHeight(targetClassName);
+            case "GoetyFocusCooldownMixin" -> goetyFocusCooldown(targetClassName);
+            case "GoetySEHelperMixin" -> goetySeHelper(targetClassName);
+            case "GoetyMiscCapHelperMixin" -> goetyMiscCapHelper(targetClassName);
+            case "GoetyLichdomHelperMixin" -> goetyLichdomHelper(targetClassName);
+            case "FancyMenuGameRendererMixin" -> fancyMenuGameRenderer(targetClassName);
+            case "FancyMenuPoseStackMixin" -> fancyMenuPoseStack(targetClassName);
             default -> new Decision(false, "no audited gate for this mixin", true);
         };
     }
@@ -290,6 +327,112 @@ public final class HRFixesMixinPlugin implements IMixinConfigPlugin {
         return apply("audited vanilla chat line-height computation");
     }
 
+    private static Decision goetyFocusCooldown(String targetClassName) {
+        if (!GOETY_FOCUS_COOLDOWN.equals(targetClassName)) {
+            return new Decision(false, "unexpected target class", true);
+        }
+        Gate modGate = gate("goety", GOETY);
+        if (modGate != null) {
+            return skip(modGate);
+        }
+        if (!fingerprint(GOETY_FOCUS_COOLDOWN_PATH, GOETY_FOCUS_COOLDOWN_SHA256)) {
+            return new Decision(false, "FocusCooldown.class fingerprint changed; re-audit before enabling", true);
+        }
+        ClassNode node = readClass(GOETY_FOCUS_COOLDOWN, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG | ClassReader.SKIP_CODE);
+        if (!evaluateGoetyFocusCooldownShape(node)) {
+            return new Decision(false, "FocusCooldown fields or cooldown query descriptors changed", true);
+        }
+        return apply("audited Goety FocusCooldown empty-map and empty-stack guard");
+    }
+
+    private static Decision goetySeHelper(String targetClassName) {
+        if (!GOETY_SE_HELPER.equals(targetClassName)) {
+            return new Decision(false, "unexpected target class", true);
+        }
+        Gate modGate = gate("goety", GOETY);
+        if (modGate != null) {
+            return skip(modGate);
+        }
+        if (!fingerprint(GOETY_SE_HELPER_PATH, GOETY_SE_HELPER_SHA256)) {
+            return new Decision(false, "SEHelper.class fingerprint changed; re-audit before enabling", true);
+        }
+        ClassNode node = readClass(GOETY_SE_HELPER, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG | ClassReader.SKIP_CODE);
+        if (!evaluateGoetySeHelperShape(node)) {
+            return new Decision(false, "SEHelper capability or cooldown descriptors changed", true);
+        }
+        return apply("audited Goety SEHelper lazy capability fallback and single-lookup cooldown queries");
+    }
+
+    private static Decision goetyMiscCapHelper(String targetClassName) {
+        if (!GOETY_MISC_HELPER.equals(targetClassName)) {
+            return new Decision(false, "unexpected target class", true);
+        }
+        Gate modGate = gate("goety", GOETY);
+        if (modGate != null) {
+            return skip(modGate);
+        }
+        if (!fingerprint(GOETY_MISC_HELPER_PATH, GOETY_MISC_HELPER_SHA256)) {
+            return new Decision(false, "MiscCapHelper.class fingerprint changed; re-audit before enabling", true);
+        }
+        if (!hasStaticMethod(GOETY_MISC_HELPER, "getCapability", "(Lnet/minecraft/world/entity/LivingEntity;)Lcom/Polarice3/Goety/common/capabilities/misc/IMisc;")) {
+            return new Decision(false, "MiscCapHelper.getCapability descriptor changed", true);
+        }
+        return apply("audited Goety MiscCapHelper lazy capability fallback");
+    }
+
+    private static Decision goetyLichdomHelper(String targetClassName) {
+        if (!GOETY_LICHDOM_HELPER.equals(targetClassName)) {
+            return new Decision(false, "unexpected target class", true);
+        }
+        Gate modGate = gate("goety", GOETY);
+        if (modGate != null) {
+            return skip(modGate);
+        }
+        if (!fingerprint(GOETY_LICHDOM_HELPER_PATH, GOETY_LICHDOM_HELPER_SHA256)) {
+            return new Decision(false, "LichdomHelper.class fingerprint changed; re-audit before enabling", true);
+        }
+        if (!hasStaticMethod(GOETY_LICHDOM_HELPER, "getCapability", "(Lnet/minecraft/world/entity/player/Player;)Lcom/Polarice3/Goety/common/capabilities/lichdom/ILichdom;")) {
+            return new Decision(false, "LichdomHelper.getCapability descriptor changed", true);
+        }
+        return apply("audited Goety LichdomHelper lazy capability fallback");
+    }
+
+    private static Decision fancyMenuGameRenderer(String targetClassName) {
+        if (!GAME_RENDERER.equals(targetClassName)) {
+            return new Decision(false, "unexpected target class", true);
+        }
+        Gate modGate = gate("fancymenu", FANCYMENU);
+        if (modGate != null) {
+            return skip(modGate);
+        }
+        if (!fingerprint(FANCYMENU_POSE_STACK_MIXIN_PATH, FANCYMENU_POSE_STACK_MIXIN_SHA256)) {
+            return new Decision(false, "FancyMenu MixinPoseStack.class fingerprint changed; re-audit before enabling", true);
+        }
+        if (!hasMethod(GAME_RENDERER, "m_109089_", "(FJLcom/mojang/blaze3d/vertex/PoseStack;)V")
+                || !hasMethod(GAME_RENDERER, "m_109093_", "(FJZ)V")) {
+            return new Decision(false, "GameRenderer renderLevel/render SRG signatures changed", true);
+        }
+        return apply("audited FancyMenu 3.9.14 GameRenderer.renderLevel scope tracker");
+    }
+
+    private static Decision fancyMenuPoseStack(String targetClassName) {
+        if (!POSE_STACK.equals(targetClassName)) {
+            return new Decision(false, "unexpected target class", true);
+        }
+        Gate modGate = gate("fancymenu", FANCYMENU);
+        if (modGate != null) {
+            return skip(modGate);
+        }
+        if (!fingerprint(FANCYMENU_POSE_STACK_MIXIN_PATH, FANCYMENU_POSE_STACK_MIXIN_SHA256)) {
+            return new Decision(false, "FancyMenu MixinPoseStack.class fingerprint changed; re-audit before enabling", true);
+        }
+        ClassNode node = readClass(POSE_STACK, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG | ClassReader.SKIP_CODE);
+        if (!evaluatePoseStackShape(node)) {
+            return new Decision(false, "PoseStack SRG transform methods changed", true);
+        }
+        return apply("audited FancyMenu 3.9.14 PoseStack 3D world-rendering skip guard");
+    }
+
     private static boolean l2ClearCachesShape() {
         ClassNode node = readClass(L2_KUBEJS_PLUGIN, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG);
         if (node == null) {
@@ -358,6 +501,42 @@ public final class HRFixesMixinPlugin implements IMixinConfigPlugin {
         return lineHeightMethods == 1 && optionGetSites == 1;
     }
 
+    static boolean evaluateGoetyFocusCooldownShape(ClassNode node) {
+        if (node == null || node.fields == null || node.methods == null) {
+            return false;
+        }
+        boolean hasCooldownsField = node.fields.stream().anyMatch(f -> "cooldowns".equals(f.name) && "Ljava/util/Map;".equals(f.desc));
+        boolean hasSpecificField = node.fields.stream().anyMatch(f -> "cooldownsSpecific".equals(f.name) && "Ljava/util/Map;".equals(f.desc));
+        return hasCooldownsField
+                && hasSpecificField
+                && hasInstanceMethodOnNode(node, "getSpecificCooldownPercent", "(Lnet/minecraft/world/item/ItemStack;)F")
+                && hasInstanceMethodOnNode(node, "isOnSpecificCooldown", "(Lnet/minecraft/world/item/ItemStack;)Z")
+                && hasInstanceMethodOnNode(node, "removeSpecificCooldown", "(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;)V")
+                && hasInstanceMethodOnNode(node, "getCooldownPercent", "(Lnet/minecraft/world/item/Item;)F")
+                && hasInstanceMethodOnNode(node, "isOnCooldown", "(Lnet/minecraft/world/item/Item;)Z");
+    }
+
+    static boolean evaluateGoetySeHelperShape(ClassNode node) {
+        if (node == null || node.methods == null) {
+            return false;
+        }
+        return hasStaticMethodOnNode(node, "getCapability", "(Lnet/minecraft/world/entity/player/Player;)Lcom/Polarice3/Goety/common/capabilities/soulenergy/ISoulEnergy;")
+                && hasStaticMethodOnNode(node, "getFocusCoolDown", "(Lnet/minecraft/world/entity/player/Player;)Lcom/Polarice3/Goety/common/capabilities/soulenergy/FocusCooldown;")
+                && hasStaticMethodOnNode(node, "isOnCooldown", "(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;)Z")
+                && hasStaticMethodOnNode(node, "getCooldownPercent", "(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;)F");
+    }
+
+    static boolean evaluatePoseStackShape(ClassNode node) {
+        if (node == null || node.methods == null) {
+            return false;
+        }
+        return hasInstanceMethodOnNode(node, "m_85836_", "()V")
+                && hasInstanceMethodOnNode(node, "m_85849_", "()V")
+                && hasInstanceMethodOnNode(node, "m_85841_", "(FFF)V")
+                && hasInstanceMethodOnNode(node, "m_252781_", "(Lorg/joml/Quaternionf;)V")
+                && hasInstanceMethodOnNode(node, "m_252880_", "(FFF)V");
+    }
+
     private static byte[] resource(String path) throws IOException {
         return resourceLookup.load(path);
     }
@@ -378,11 +557,32 @@ public final class HRFixesMixinPlugin implements IMixinConfigPlugin {
 
     private static boolean hasMethod(String className, String name, String desc) {
         ClassNode node = readClass(className, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG | ClassReader.SKIP_CODE);
+        return hasInstanceMethodOnNode(node, name, desc);
+    }
+
+    private static boolean hasStaticMethod(String className, String name, String desc) {
+        ClassNode node = readClass(className, ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG | ClassReader.SKIP_CODE);
+        return hasStaticMethodOnNode(node, name, desc);
+    }
+
+    private static boolean hasInstanceMethodOnNode(ClassNode node, String name, String desc) {
         if (node == null) {
             return false;
         }
         long count = node.methods.stream()
                 .filter(m -> name.equals(m.name) && desc.equals(m.desc) && (m.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE | Opcodes.ACC_STATIC)) == 0)
+                .count();
+        return count == 1L;
+    }
+
+    private static boolean hasStaticMethodOnNode(ClassNode node, String name, String desc) {
+        if (node == null) {
+            return false;
+        }
+        long count = node.methods.stream()
+                .filter(m -> name.equals(m.name) && desc.equals(m.desc)
+                        && (m.access & Opcodes.ACC_STATIC) != 0
+                        && (m.access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0)
                 .count();
         return count == 1L;
     }
@@ -478,11 +678,13 @@ public final class HRFixesMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
-        LOG.info("MERGED {} -> {}", simpleName(mixinClassName), targetClassName);
-        if (!"LodestoneTooltipMixin".equals(simpleName(mixinClassName)) || !TOOLTIP_TARGET.equals(targetClassName)) {
-            return;
+        String shortMixin = simpleName(mixinClassName);
+        LOG.info("MERGED {} -> {}", shortMixin, targetClassName);
+        if ("LodestoneTooltipMixin".equals(shortMixin) && TOOLTIP_TARGET.equals(targetClassName)) {
+            applyLodestoneSynchronization(targetClass);
+        } else if ("FancyMenuPoseStackMixin".equals(shortMixin) && POSE_STACK.equals(targetClassName)) {
+            applyFancyMenuPoseStackGuard(targetClass);
         }
-        applyLodestoneSynchronization(targetClass);
     }
 
     static boolean applyLodestoneSynchronization(ClassNode targetClass) {
@@ -508,6 +710,57 @@ public final class HRFixesMixinPlugin implements IMixinConfigPlugin {
             return true;
         } catch (RuntimeException ex) {
             LOG.error("Lodestone tooltip synchronization failed; leaving the callback unchanged", ex);
+            return false;
+        }
+    }
+
+    static boolean applyFancyMenuPoseStackGuard(ClassNode targetClass) {
+        try {
+            List<MethodNode> candidates = targetClass.methods.stream()
+                    .filter(m -> "()Z".equals(m.desc)
+                            && (FANCYMENU_MODEL_VIEW_CHECK.equals(m.name) || m.name.endsWith("$" + FANCYMENU_MODEL_VIEW_CHECK)))
+                    .toList();
+            if (candidates.size() != 1) {
+                LOG.warn("SKIP FancyMenu PoseStack guard: expected 1 {} method, found {}",
+                        FANCYMENU_MODEL_VIEW_CHECK, candidates.size());
+                return false;
+            }
+            MethodNode method = candidates.get(0);
+            if ((method.access & (Opcodes.ACC_STATIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) != 0
+                    || method.instructions == null
+                    || method.instructions.size() == 0) {
+                LOG.warn("SKIP FancyMenu PoseStack guard: unexpected method flags or empty body");
+                return false;
+            }
+            for (AbstractInsnNode insn : method.instructions) {
+                if (insn instanceof MethodInsnNode call
+                        && FANCYMENU_GUARD_OWNER.equals(call.owner)
+                        && FANCYMENU_GUARD_METHOD.equals(call.name)
+                        && "()Z".equals(call.desc)) {
+                    LOG.info("FancyMenu PoseStack guard is already applied; nothing to do");
+                    return true;
+                }
+            }
+            LabelNode continueLabel = new LabelNode();
+            InsnList prefix = new InsnList();
+            prefix.add(new MethodInsnNode(
+                    Opcodes.INVOKESTATIC,
+                    FANCYMENU_GUARD_OWNER,
+                    FANCYMENU_GUARD_METHOD,
+                    "()Z",
+                    false));
+            prefix.add(new JumpInsnNode(Opcodes.IFEQ, continueLabel));
+            prefix.add(new InsnNode(Opcodes.ICONST_1));
+            prefix.add(new InsnNode(Opcodes.IRETURN));
+            prefix.add(continueLabel);
+            prefix.add(new FrameNode(Opcodes.F_SAME, 0, null, 0, null));
+            method.instructions.insert(prefix);
+            method.maxStack = Math.max(method.maxStack, 2);
+            method.maxLocals = Math.max(method.maxLocals, 1);
+            LOG.info("Guarded FancyMenu PoseStack matrix tracker during GameRenderer.renderLevel");
+            return true;
+        } catch (RuntimeException ex) {
+            LOG.error("FancyMenu PoseStack guard failed; leaving PoseStack unchanged", ex);
             return false;
         }
     }

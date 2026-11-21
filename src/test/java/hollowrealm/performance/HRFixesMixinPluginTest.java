@@ -10,8 +10,8 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -39,11 +39,14 @@ class HRFixesMixinPluginTest {
             "l2hostility", "2.5.19",
             "l2damagetracker", "0.4.4",
             "collections_of_optimizations", "5.5",
-            "structurify", "2.0.43");
+            "structurify", "2.0.43",
+            "goety", "2.5.60.5",
+            "fancymenu", "3.9.14");
 
     @BeforeAll
     static void loadRealTargetBytes() throws IOException {
         Path modsDir = Path.of(MODS_PROP);
+        Path clientSrg = Path.of(CLIENT_SRG_PROP);
         loadFromJar(modsDir.resolve("ApothicAttributes-1.20.1-1.3.7.jar"),
                 "dev/shadowsoffire/attributeslib/client/AttributesLibClient.class");
         loadFromJar(modsDir.resolve("lodestone-1.20.1-1.6.4.1.jar"),
@@ -57,8 +60,16 @@ class HRFixesMixinPluginTest {
         loadFromNestedJar(modsDir.resolve("[莱特兰-扩充] l2complements-2.6.1.jar"),
                 "META-INF/jarjar/l2damagetracker-0.4.4.jar",
                 "dev/xkmc/l2damagetracker/contents/attack/AttackEventHandler.class");
-        loadFromJar(Path.of(CLIENT_SRG_PROP),
-                "net/minecraft/client/gui/components/ChatComponent.class");
+        Path goetyJar = modsDir.resolve("[诡厄巫法] goety-2.5.60.5.jar");
+        loadFromJar(goetyJar, "com/Polarice3/Goety/common/capabilities/soulenergy/FocusCooldown.class");
+        loadFromJar(goetyJar, "com/Polarice3/Goety/utils/SEHelper.class");
+        loadFromJar(goetyJar, "com/Polarice3/Goety/utils/MiscCapHelper.class");
+        loadFromJar(goetyJar, "com/Polarice3/Goety/utils/LichdomHelper.class");
+        loadFromJar(modsDir.resolve("fancymenu_forge_3.9.14_MC_1.20.1.jar"),
+                "de/keksuccino/fancymenu/mixin/mixins/common/client/MixinPoseStack.class");
+        loadFromJar(clientSrg, "net/minecraft/client/gui/components/ChatComponent.class");
+        loadFromJar(clientSrg, "net/minecraft/client/renderer/GameRenderer.class");
+        loadFromJar(clientSrg, "com/mojang/blaze3d/vertex/PoseStack.class");
     }
 
     private static void loadFromJar(Path jar, String entryName) throws IOException {
@@ -96,13 +107,21 @@ class HRFixesMixinPluginTest {
     }
 
     @Test
-    void enablesAllFiveLiveMixinsAgainstRealInstalledModBytes() {
+    void enablesAllElevenLiveMixinsAgainstRealInstalledModBytes() {
         HRFixesMixinPlugin.setInstalledVersionsForTests(AUDITED_VERSIONS);
         HRFixesMixinPlugin.setResourceLookupForTests(REAL_CLASSES::get);
         HRFixesMixinPlugin plugin = new HRFixesMixinPlugin();
 
         assertTrue(plugin.shouldApplyMixin("dev.xkmc.l2hostility.compat.kubejs.LHKJSPlugin",
                 "hollowrealm.performance.mixin.KubeJsAttackCacheMixin"));
+        assertTrue(plugin.shouldApplyMixin("com.Polarice3.Goety.common.capabilities.soulenergy.FocusCooldown",
+                "hollowrealm.performance.mixin.GoetyFocusCooldownMixin"));
+        assertTrue(plugin.shouldApplyMixin("com.Polarice3.Goety.utils.SEHelper",
+                "hollowrealm.performance.mixin.GoetySEHelperMixin"));
+        assertTrue(plugin.shouldApplyMixin("com.Polarice3.Goety.utils.MiscCapHelper",
+                "hollowrealm.performance.mixin.GoetyMiscCapHelperMixin"));
+        assertTrue(plugin.shouldApplyMixin("com.Polarice3.Goety.utils.LichdomHelper",
+                "hollowrealm.performance.mixin.GoetyLichdomHelperMixin"));
         assertTrue(plugin.shouldApplyMixin("dev.shadowsoffire.apotheosis.adventure.compat.AdventureJEIPlugin",
                 "hollowrealm.performance.mixin.ApotheosisJeiMixin"));
         assertTrue(plugin.shouldApplyMixin("mezz.jei.library.plugins.vanilla.anvil.SmithingRecipeCategory",
@@ -111,6 +130,10 @@ class HRFixesMixinPluginTest {
                 "hollowrealm.performance.mixin.LodestoneTooltipMixin"));
         assertTrue(plugin.shouldApplyMixin("net.minecraft.client.gui.components.ChatComponent",
                 "hollowrealm.performance.mixin.ChatLineHeightGuardMixin"));
+        assertTrue(plugin.shouldApplyMixin("net.minecraft.client.renderer.GameRenderer",
+                "hollowrealm.performance.mixin.FancyMenuGameRendererMixin"));
+        assertTrue(plugin.shouldApplyMixin("com.mojang.blaze3d.vertex.PoseStack",
+                "hollowrealm.performance.mixin.FancyMenuPoseStackMixin"));
     }
 
     @Test
@@ -118,6 +141,8 @@ class HRFixesMixinPluginTest {
         Map<String, String> drifted = new HashMap<>(AUDITED_VERSIONS);
         drifted.put("jei", "15.99.0.0");
         drifted.put("l2damagetracker", "0.4.99");
+        drifted.put("goety", "2.5.99.0");
+        drifted.put("fancymenu", "3.9.99");
         HRFixesMixinPlugin.setInstalledVersionsForTests(drifted);
         HRFixesMixinPlugin.setResourceLookupForTests(path -> {
             byte[] raw = REAL_CLASSES.get(path);
@@ -132,12 +157,44 @@ class HRFixesMixinPluginTest {
         HRFixesMixinPlugin plugin = new HRFixesMixinPlugin();
         assertFalse(plugin.shouldApplyMixin("dev.xkmc.l2hostility.compat.kubejs.LHKJSPlugin",
                 "hollowrealm.performance.mixin.KubeJsAttackCacheMixin"));
+        assertFalse(plugin.shouldApplyMixin("com.Polarice3.Goety.common.capabilities.soulenergy.FocusCooldown",
+                "hollowrealm.performance.mixin.GoetyFocusCooldownMixin"));
+        assertFalse(plugin.shouldApplyMixin("com.Polarice3.Goety.utils.SEHelper",
+                "hollowrealm.performance.mixin.GoetySEHelperMixin"));
+        assertFalse(plugin.shouldApplyMixin("com.Polarice3.Goety.utils.MiscCapHelper",
+                "hollowrealm.performance.mixin.GoetyMiscCapHelperMixin"));
+        assertFalse(plugin.shouldApplyMixin("com.Polarice3.Goety.utils.LichdomHelper",
+                "hollowrealm.performance.mixin.GoetyLichdomHelperMixin"));
         assertFalse(plugin.shouldApplyMixin("dev.shadowsoffire.apotheosis.adventure.compat.AdventureJEIPlugin",
                 "hollowrealm.performance.mixin.ApotheosisJeiMixin"));
         assertFalse(plugin.shouldApplyMixin("mezz.jei.library.plugins.vanilla.anvil.SmithingRecipeCategory",
                 "hollowrealm.performance.mixin.SocketingJeiLayoutMixin"));
         assertFalse(plugin.shouldApplyMixin("dev.shadowsoffire.attributeslib.client.AttributesLibClient",
                 "hollowrealm.performance.mixin.LodestoneTooltipMixin"));
+        assertFalse(plugin.shouldApplyMixin("net.minecraft.client.renderer.GameRenderer",
+                "hollowrealm.performance.mixin.FancyMenuGameRendererMixin"));
+        assertFalse(plugin.shouldApplyMixin("com.mojang.blaze3d.vertex.PoseStack",
+                "hollowrealm.performance.mixin.FancyMenuPoseStackMixin"));
+
+        // Fingerprint mutation must also fail closed even when versions match
+        HRFixesMixinPlugin.resetVersionCacheForTests();
+        HRFixesMixinPlugin.setInstalledVersionsForTests(AUDITED_VERSIONS);
+        HRFixesMixinPlugin.setResourceLookupForTests(path -> {
+            byte[] raw = REAL_CLASSES.get(path);
+            if (raw != null && (path.endsWith("FocusCooldown.class") || path.endsWith("MixinPoseStack.class"))) {
+                byte[] mutated = raw.clone();
+                mutated[mutated.length - 1] ^= 0x01;
+                return mutated;
+            }
+            return raw;
+        });
+        HRFixesMixinPlugin mutatedPlugin = new HRFixesMixinPlugin();
+        assertFalse(mutatedPlugin.shouldApplyMixin("com.Polarice3.Goety.common.capabilities.soulenergy.FocusCooldown",
+                "hollowrealm.performance.mixin.GoetyFocusCooldownMixin"));
+        assertFalse(mutatedPlugin.shouldApplyMixin("net.minecraft.client.renderer.GameRenderer",
+                "hollowrealm.performance.mixin.FancyMenuGameRendererMixin"));
+        assertFalse(mutatedPlugin.shouldApplyMixin("com.mojang.blaze3d.vertex.PoseStack",
+                "hollowrealm.performance.mixin.FancyMenuPoseStackMixin"));
 
         // Removed 1.x mixins must always fail closed
         assertFalse(plugin.shouldApplyMixin("cn.leolezury.eternalstarlight.common.network.SyncAttachmentsPacket",
@@ -151,7 +208,7 @@ class HRFixesMixinPluginTest {
     }
 
     @Test
-    void synchronizesLodestoneLambdaIdempotentlyAndChecksStructurifyGate() {
+    void synchronizesLodestoneLambdaAndTransformsFancyMenuPoseStackIdempotently() {
         ClassNode node = new ClassNode();
         new ClassReader(REAL_CLASSES.get("dev/shadowsoffire/attributeslib/client/AttributesLibClient.class")).accept(node, 0);
         MethodNode target = node.methods.stream()
@@ -162,14 +219,31 @@ class HRFixesMixinPluginTest {
 
         assertTrue(HRFixesMixinPlugin.applyLodestoneSynchronization(node));
         assertTrue((target.access & Opcodes.ACC_SYNCHRONIZED) != 0);
-        // Second pass must remain idempotent
         assertTrue(HRFixesMixinPlugin.applyLodestoneSynchronization(node));
         assertTrue((target.access & Opcodes.ACC_SYNCHRONIZED) != 0);
 
-        // Verify valid class bytes still write out cleanly
         ClassWriter cw = new ClassWriter(0);
         node.accept(cw);
         assertTrue(cw.toByteArray().length > 1000);
+
+        // Verify FancyMenu MixinPoseStack postApply transformation against real FancyMenu 3.9.14 bytecode
+        ClassNode fmNode = new ClassNode();
+        new ClassReader(REAL_CLASSES.get("de/keksuccino/fancymenu/mixin/mixins/common/client/MixinPoseStack.class")).accept(fmNode, 0);
+        MethodNode fmCheck = fmNode.methods.stream()
+                .filter(m -> "isRenderSystemModelViewStack_FancyMenu".equals(m.name))
+                .findFirst()
+                .orElseThrow();
+        int beforeInsnCount = fmCheck.instructions.size();
+        assertTrue(HRFixesMixinPlugin.applyFancyMenuPoseStackGuard(fmNode));
+        int afterFirstPassCount = fmCheck.instructions.size();
+        assertTrue(afterFirstPassCount > beforeInsnCount);
+        // Second pass must be idempotent
+        assertTrue(HRFixesMixinPlugin.applyFancyMenuPoseStackGuard(fmNode));
+        assertEquals(afterFirstPassCount, fmCheck.instructions.size());
+
+        ClassWriter fmWriter = new ClassWriter(0);
+        fmNode.accept(fmWriter);
+        assertTrue(fmWriter.toByteArray().length > 5000);
 
         HRFixesMixinPlugin.setInstalledVersionsForTests(AUDITED_VERSIONS);
         assertTrue(HRFixesMixinPlugin.shouldDisableStructurifyOverlap());

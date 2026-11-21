@@ -1,8 +1,10 @@
+.gradle/
 .runtime/
 __pycache__/
 *.py[cod]
 *.class
 *.jar
+!gradle/wrapper/gradle-wrapper.jar
 *.zip
 build/
 dist/
