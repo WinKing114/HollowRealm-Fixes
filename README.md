@@ -4,6 +4,7 @@
   <img src="https://img.shields.io/badge/Java-17-5b9c51?style=flat" alt="Java 17" />
   <a href="https://github.com/WinKing114/HR-Fixes/issues"><img src="https://img.shields.io/badge/GitHub-Issues-5b9c51?style=flat" alt="GitHub Issues" /></a>
   <img src="https://img.shields.io/badge/License-MIT-5b9c51?style=flat" alt="MIT License" />
+  <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&amp;business=dubole114%40gmail.com"><img src="https://img.shields.io/badge/PayPal-Donate-5b9c51?style=flat" alt="Donate via PayPal" /></a>
 </p>
 
 # HollowRealm Fixes
